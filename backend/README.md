@@ -6,107 +6,123 @@ Multilingual Smart Medication Manager — Spring Boot REST API Service.
 
 - **Java:** 21 LTS
 - **Framework:** Spring Boot 3.3.4
+- **Database:** MySQL 8+ (`utf8mb4` character set, `utf8mb4_unicode_ci` collation)
+- **Database Migrations:** Flyway (`flyway-core`, `flyway-mysql`)
+- **ORM / Persistence:** Spring Data JPA / Hibernate 6 (schema validation mode)
 - **Build Tool:** Apache Maven 3.9+
 - **Documentation:** Springdoc OpenAPI / Swagger v3
 - **Monitoring:** Spring Boot Actuator
 - **Security:** Spring Security (Foundational setup; full JWT & RBAC in Phase 3)
-- **Database Layer:** Spring Data JPA & Flyway (Foundation included; MySQL integration in Phase 2)
 
 ---
 
-## Current Status: Phase 1 — Backend Foundation
+## Current Status: Phase 2 — MySQL Database & Flyway Migrations
 
-> **Note on Phase Boundaries:**
-> - **Phase 1 (Current):** Foundational Spring Boot setup, health endpoints, centralized exception handling, standard API responses, CORS configuration, and Swagger/OpenAPI documentation.
-> - **Phase 2 (Upcoming):** MySQL 8+ database connection, JPA entities, and Flyway schema migrations.
-> - **Phase 3 (Upcoming):** JWT authentication, user registration/login, password hashing, and role-based access control (`PATIENT`, `DOCTOR`, `ADMIN`).
+> **Important Architecture & Database Rule:**
+> Application tables, primary/foreign keys, indexes, and constraints are **strictly managed via Flyway versioned migrations** located at `src/main/resources/db/migration`.
+> **DO NOT** manually create or alter application tables via MySQL Workbench or CLI. MySQL Workbench is used solely for initial database creation (`CREATE DATABASE medguide_db`), inspecting tables, and running diagnostic/audit queries.
 
 ---
 
-## Configuration
+## Database Setup & Configuration
 
-Configuration templates are defined in `.env.example`.
+### 1. Database Creation (One-time manual setup)
+Run the following in MySQL Workbench or MySQL client once:
+```sql
+CREATE DATABASE medguide_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
-For local development, the application loads `src/main/resources/application.yml` and `src/main/resources/application-dev.yml`.
+### 2. Environment Variables Configuration
+Configure the connection through environment variables or a local `.env` file (copied from `.env.example`).
 
-### Key Environment Variables (see `.env.example`)
-- `SERVER_PORT`: Application HTTP port (default: `8080`)
-- `SPRING_PROFILES_ACTIVE`: Active Spring profile (default: `dev`)
-- `CORS_ALLOWED_ORIGINS`: Allowed origins for Flutter web & mobile clients
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `DB_HOST` | MySQL Server Hostname | `localhost` |
+| `DB_PORT` | MySQL Server Port | `3306` |
+| `DB_NAME` | Database Schema Name | `medguide_db` |
+| `DB_USERNAME` | Database User | `root` |
+| `DB_PASSWORD` | Database User Password | *(empty / prompt)* |
+| `SERVER_PORT` | Backend HTTP Port | `8080` |
+| `SPRING_PROFILES_ACTIVE` | Active Spring profile | `dev` |
+
+> **Security Warning:** Never commit `.env` or files containing real database passwords to version control.
+
+---
+
+## Flyway Migrations
+
+Flyway automatically discovers and applies migration scripts on application startup.
+- **Migration Location:** `src/main/resources/db/migration`
+- **History Table:** `flyway_schema_history`
+- **DDL Mode:** `spring.jpa.hibernate.ddl-auto=validate` (Hibernate validates matching entities and never overrides Flyway schema).
+
+### Applied Migrations
+- `V1__initial_schema.sql`: Initial MedGuide relational domain schema containing:
+  1. `users` — Base authentication & role accounts (`PATIENT`, `DOCTOR`, `ADMIN`)
+  2. `patients` — Patient medical background, allergies, language preference
+  3. `doctors` — Medical practitioner credentials and verification status
+  4. `medicines` — Central medicine catalog with generic names and warnings
+  5. `medicine_localizations` — Multilingual catalog information (English, Telugu)
+  6. `prescriptions` — Uploaded scans & digital prescriptions with OCR/AI metadata
+  7. `patient_medications` — Patient active/paused medication regimens
+  8. `medication_logs` — Scheduled dose event history (`TAKEN`, `SKIPPED`, `MISSED`, `SNOOZED`)
+  9. `doctor_patient_links` — Consensual patient-doctor relationships
+  10. `refresh_tokens` — Rotated token hashes for secure authentication
+  11. `device_tokens` — FCM device registration tokens
+  12. `admin_audit_logs` — Immutable audit log of administrative actions
 
 ---
 
 ## Running the Application
 
-### 1. Build and Run via Maven
-
-To run locally using Maven:
-
-```bash
-cd backend
+### 1. Run via Maven with Environment Variables
+```powershell
+$env:DB_PASSWORD="your_password"
 mvn spring-boot:run
 ```
 
-Or build the executable jar and run:
-
-```bash
-mvn clean package
-java -jar target/medguide-backend-0.0.1-SNAPSHOT.jar
-```
-
-### 2. Running Automated Tests
-
-```bash
-cd backend
+### 2. Run Tests
+```powershell
+$env:DB_PASSWORD="your_password"
 mvn clean test
 ```
 
 ---
 
-## Available Endpoints (Phase 1)
+## Verifying Migrations in MySQL Workbench
 
-### 1. Base API Path
-All application REST endpoints follow the prefix:
+Execute the following diagnostic queries in MySQL Workbench:
+
+```sql
+USE medguide_db;
+
+-- 1. Verify all 12 domain tables + flyway_schema_history exist:
+SHOW TABLES;
+
+-- 2. Verify migration history:
+SELECT installed_rank, version, description, type, script, success, installed_on
+FROM flyway_schema_history
+ORDER BY installed_rank;
+
+-- 3. Inspect table definitions:
+DESCRIBE users;
+DESCRIBE patients;
+DESCRIBE doctors;
+DESCRIBE medicines;
+DESCRIBE prescriptions;
+DESCRIBE patient_medications;
+DESCRIBE medication_logs;
+DESCRIBE doctor_patient_links;
+DESCRIBE refresh_tokens;
+DESCRIBE device_tokens;
+DESCRIBE admin_audit_logs;
 ```
-/api/v1/
-```
-
-### 2. Health Check
-- **Endpoint:** `GET /api/v1/health`
-- **Description:** Verifies that the MedGuide backend service is up and running.
-- **Sample Response:**
-  ```json
-  {
-    "status": "UP",
-    "service": "MedGuide Backend"
-  }
-  ```
-
-### 3. Swagger / OpenAPI 3 UI
-Interactive API documentation is accessible in your browser at:
-- **Swagger UI:** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
-- **OpenAPI JSON Spec:** [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
-
-### 4. Actuator Health
-- **Actuator Health:** [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
 
 ---
 
-## Error Handling Foundation
+## Available Endpoints (Phase 2)
 
-All REST errors return a standardized JSON format via `GlobalExceptionHandler`:
-
-```json
-{
-  "success": false,
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Validation failed for one or more fields",
-  "path": "/api/v1/...",
-  "timestamp": "2026-10-02T08:45:00.000Z",
-  "validationErrors": {
-    "field": "Validation message"
-  }
-}
-```
-Stack traces and internal database credentials are never exposed in API responses.
+- **Health Check:** `GET http://localhost:8080/api/v1/health`
+- **Actuator Health:** `GET http://localhost:8080/actuator/health`
+- **Swagger UI:** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+- **OpenAPI JSON:** [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
