@@ -12,11 +12,19 @@ Multilingual Smart Medication Manager — Spring Boot REST API Service.
 - **Build Tool:** Apache Maven 3.9+
 - **Documentation:** Springdoc OpenAPI / Swagger v3
 - **Monitoring:** Spring Boot Actuator
-- **Security:** Spring Security (Foundational setup; full JWT & RBAC in Phase 3)
+- **Security:** Spring Security 6, JJWT 0.12.6 (HMAC-SHA256), BCrypt Password Hashing, Refresh Token Rotation & Family Revocation
+- **Roles & RBAC:** `ROLE_PATIENT`, `ROLE_DOCTOR`, `ROLE_ADMIN` with `@PreAuthorize` method security
 
 ---
 
-## Current Status: Phase 2 — MySQL Database & Flyway Migrations
+## Current Status: Phase 3 — Authentication, JWT & RBAC
+
+MedGuide authentication provides a robust, stateless security architecture:
+- **Stateless JWT Access Tokens:** 15-minute expiration, signed with HMAC-SHA256.
+- **Opaque Refresh Tokens:** 7-day expiration, stored only as cryptographic SHA-256 hashes in MySQL `refresh_tokens` table.
+- **Token Rotation & Family Revocation:** Automatic single-use refresh tokens; detecting reuse of a revoked token invalidates all user refresh tokens immediately.
+- **Role-Based Access Control:** Pre-authorize method security strictly gating endpoints by role (`PATIENT`, `DOCTOR`, `ADMIN`). Public registration is restricted to `PATIENT` and `DOCTOR`.
+- **Custom Exception Handling:** Standardized error envelopes with 401 Unauthorized, 403 Forbidden, 409 Conflict, and RFC-compliant payload format.
 
 > **Important Architecture & Database Rule:**
 > Application tables, primary/foreign keys, indexes, and constraints are **strictly managed via Flyway versioned migrations** located at `src/main/resources/db/migration`.
@@ -120,9 +128,22 @@ DESCRIBE admin_audit_logs;
 
 ---
 
-## Available Endpoints (Phase 2)
+## Available Endpoints (Phase 3)
 
+### Public & Actuator Endpoints
 - **Health Check:** `GET http://localhost:8080/api/v1/health`
 - **Actuator Health:** `GET http://localhost:8080/actuator/health`
 - **Swagger UI:** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 - **OpenAPI JSON:** [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
+
+### Authentication Endpoints (`/api/v1/auth`)
+- **Register:** `POST /api/v1/auth/register` (Public for `PATIENT` and `DOCTOR`; `ADMIN` registration rejected with 403 Forbidden)
+- **Login:** `POST /api/v1/auth/login` (Returns JWT access token + secure refresh token)
+- **Refresh Token:** `POST /api/v1/auth/refresh` (Single-use token rotation; detects reuse and revokes token family)
+- **Logout:** `POST /api/v1/auth/logout` (Revokes provided refresh token)
+- **Current User Profile:** `GET /api/v1/auth/me` (Authenticated, Bearer JWT required)
+
+### Role-Based Access Control Verification Endpoints (`/api/v1/auth/test`)
+- **Patient Protected:** `GET /api/v1/auth/test/patient` (Requires `ROLE_PATIENT` or `ROLE_ADMIN`)
+- **Doctor Protected:** `GET /api/v1/auth/test/doctor` (Requires `ROLE_DOCTOR` or `ROLE_ADMIN`)
+- **Admin Protected:** `GET /api/v1/auth/test/admin` (Requires `ROLE_ADMIN`)

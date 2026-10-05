@@ -37,5 +37,5 @@ medguide-smart-medication-manager/
 - [x] **Phase 0:** Repository Inspection, Environment Assessment, and Architecture Planning
 - [x] **Phase 1:** Spring Boot Backend Foundation (Java 21, Spring Boot 3.3.4, OpenAPI/Swagger, Health Endpoint, Centralized Exception Handling)
 - [x] **Phase 2:** MySQL Database and Flyway Migrations (`medguide_db`, 12 core relational tables, versioned schema migration `V1__initial_schema.sql`, JPA schema validation)
-- [ ] **Phase 3:** Authentication, JWT, and Role-Based Authorization
+- [x] **Phase 3:** Authentication, JWT, and Role-Based Authorization (BCrypt, JJWT 0.12.6, SHA-256 Refresh Token Rotation & Reuse Detection, RBAC with PATIENT, DOCTOR, ADMIN)
 - [ ] **Phase 4:** Flutter Architecture and Client Foundations
